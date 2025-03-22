@@ -9,7 +9,7 @@ async def create_counter(token, domain_name, num):
     }
     data = {
         "counter": {
-            "name": f"Счетчик № {num} для {domain_name}",
+            "name": f"{num}: {domain_name}",
             "site": domain_name,
             "timezone": "Europe/Moscow"
         }

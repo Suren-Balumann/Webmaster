@@ -1,23 +1,82 @@
 import re
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command, StateFilter
 from aiogram.types import Message
 from utils.external_API import create_counter
-from config import API_TOKEN
+from config import WIN1_TOKEN, POKER_DOM_TOKEN, MEL_BET_TOKEN, KURV4_TOKEN
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+import app.keyboards as kb
 
 router = Router()
 
 
+class Reg(StatesGroup):
+    WIN1 = State()
+    POKER_DOM = State()
+    MEL_BET = State()
+    KURV4 = State()
+
+
+STATE_TO_TOKEN = {
+    "Reg:WIN1": WIN1_TOKEN,
+    "Reg:POKER_DOM": POKER_DOM_TOKEN,
+    "Reg:MEL_BET": MEL_BET_TOKEN,
+    "Reg:KURV4": KURV4_TOKEN
+}
+
+
 @router.message(CommandStart())
 async def start(message: Message):
-    await message.answer("Привет")
+    await message.answer("Привет, выбери аккаунт!")
 
 
 domain_pattern = re.compile(r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}')
 
 
-@router.message(F.document)
-async def handle_document(message: Message):
+@router.message(Command("1_win"))
+async def cmd_win1(message: Message, state: FSMContext):
+    await message.answer("Пожалуйста, отправьте txt файл с именами для 1_win.\n\n❌Отмена - для выбора другого акк!",
+                         reply_markup=kb.cancel)
+    await state.set_state(Reg.WIN1)
+
+
+@router.message(Command("poker_dom"))
+async def cmd_fonbet(message: Message, state: FSMContext):
+    await message.answer("Пожалуйста, отправьте txt файл с именами для Poker_dom.\n\n❌Отмена - для выбора другого акк!",
+                         reply_markup=kb.cancel)
+    await state.set_state(Reg.POKER_DOM)
+
+
+@router.message(Command("mel_bet"))
+async def cmd_joycasino(message: Message, state: FSMContext):
+    await message.answer("Пожалуйста, отправьте txt файл с именами для Mel_bet.\n\n❌Отмена - для выбора другого акк!",
+                         reply_markup=kb.cancel)
+    await state.set_state(Reg.MEL_BET)
+
+
+@router.message(Command("KURV4"))
+async def cmd_xbet1(message: Message, state: FSMContext):
+    await message.answer("Пожалуйста, отправьте txt файл с именами.\n\n❌Отмена - для выбора другого акк!",
+                         reply_markup=kb.cancel)
+    await state.set_state(Reg.KURV4)
+
+
+@router.message(StateFilter(Reg.WIN1, Reg.POKER_DOM, Reg.MEL_BET, Reg.KURV4), F.text == "❌Отмена")
+async def cancel_fsm_state(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("❌Отменено!")
+
+
+@router.message(StateFilter(Reg.WIN1, Reg.POKER_DOM, Reg.MEL_BET, Reg.KURV4), F.document)
+async def handle_document(message: Message, state: FSMContext):
+    # Получаем текущее состояние
+    current_state = await state.get_state()
+    print(current_state)
+
+    # Получаем токен для текущего состояния
+    API_TOKEN = STATE_TO_TOKEN.get(current_state)
+
     document = message.document
 
     # Проверяем, что файл является текстовым
@@ -46,14 +105,16 @@ async def handle_document(message: Message):
         if domains:
             unique_domains = list(set(domains))  # Убираем дубликаты
             for domain in unique_domains:
-                first_counter_id = await create_counter(API_TOKEN, domain, 1)
-                second_counter_id = await create_counter(API_TOKEN, domain, 2)
+                first_counter_id = await create_counter(API_TOKEN, domain, "Сайт-1")
+                second_counter_id = await create_counter(API_TOKEN, domain, "PF-1")
                 if first_counter_id is None or second_counter_id is None:
-                    await message.answer("Got something wrong!")
+                    await message.answer("Already exists!")
 
-                await message.answer(f"{domain}\n\n"
-                                     f"First Counter ID: {first_counter_id}\n"
-                                     f"Second Counter ID: {second_counter_id}")
+                await message.answer(f"Аккаунт - {current_state.split(":")[1]}\n"
+                                     f"{domain}\n\n"
+                                     f"✅Сайт-1 ID: {first_counter_id}\n"
+                                     f"✅PF-1 ID: {second_counter_id}")
+
 
     except UnicodeDecodeError:
         await message.answer(
